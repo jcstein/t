@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestia Bulletin Board</title>
+    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+    <link rel="icon" type="image/png" href="/public/favicon.png">
+    <link rel="stylesheet" href="style.css">
+    <!-- Privacy-friendly analytics by Plausible -->
+    <script async src="https://plausible.io/js/pa-y6r2Z_jrce84Q3gNQJxGP.js"></script>
+    <script>
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init()
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Celestia Bulletin Board</h1>
+        <p class="subtitle">Post messages to <a href="https://celestia.org" target="_blank" rel="noopener">Celestia</a>'s data availability layer via <a href="https://t.tech" target="_blank" rel="noopener">Twinkle</a> • <span style="color: #ffd700;">Mocha Testnet</span> • <a href="https://github.com/jcstein/t" target="_blank" rel="noopener">View Code</a></p>
+
+        <div class="post-section">
+            <h2>Post a Message or Image</h2>
+            <div class="input-tabs">
+                <button class="tab-btn active" data-tab="text">📝 Text</button>
+                <button class="tab-btn" data-tab="image">🖼️ Image</button>
+            </div>
+            <div class="tab-content" id="textTab">
+                <textarea id="messageInput" placeholder="Type your message here..." rows="4"></textarea>
+            </div>
+            <div class="tab-content" id="imageTab" style="display: none;">
+                <div class="file-upload-area" id="fileUploadArea">
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;" />
+                    <div class="upload-prompt">
+                        <span class="upload-icon">📁</span>
+                        <p>Click to select an image or drag and drop</p>
+                        <p class="file-hint">Supports: JPG, PNG, GIF, WebP</p>
+                    </div>
+                    <div class="file-preview" id="filePreview" style="display: none;">
+                        <img id="previewImage" alt="Preview" />
+                        <button class="remove-file" id="removeFile">✕ Remove</button>
+                    </div>
+                </div>
+            </div>
+            <div class="passkey-section">
+                <div class="passkey-option-toggle">
+                    <button class="passkey-option-btn active" data-mode="biometric">🔐 Use Biometric</button>
+                    <button class="passkey-option-btn" data-mode="password">🔑 Use Password</button>
+                </div>
+                <div id="biometricMode" class="passkey-mode">
+                    <button id="registerPasskeyBtn" class="register-passkey-btn" style="display: none;">
+                        👆 Set up Face ID / Touch ID / Fingerprint
+                    </button>
+                    <button id="authenticatePasskeyBtn" class="authenticate-passkey-btn" style="display: none;">
+                        🔓 Unlock with Biometric
+                    </button>
+                    <p class="passkey-hint" id="biometricHint">Set up biometric authentication to secure your data</p>
+                </div>
+                <div id="passwordMode" class="passkey-mode" style="display: none;">
+                    <input type="password" id="passkeyInput" placeholder="🔐 Enter password to encrypt (required)" />
+                    <p class="passkey-hint">Only people with this password can decrypt your data</p>
+                </div>
+            </div>
+            <button id="postBtn">Post to Celestia</button>
+            <div id="status"></div>
+        </div>
+
+        <div class="result-section" id="resultSection" style="display: none;">
+            <h2>✅ Posted Successfully!</h2>
+            <div class="result-grid">
+                <div class="result-item">
+                    <strong>Block Height:</strong>
+                    <span id="blockHeight"></span>
+                </div>
+                <div class="result-item">
+                    <strong>Transaction ID:</strong>
+                    <a id="txLink" target="_blank"></a>
+                </div>
+                <div class="result-item">
+                    <strong>Commitment:</strong>
+                    <code id="commitment"></code>
+                </div>
+                <div class="result-item">
+                    <strong>Gas Fee:</strong>
+                    <span id="gasFee"></span>
+                </div>
+                <div class="result-item">
+                    <strong>Twinkle Request ID:</strong>
+                    <code id="requestId"></code>
+                </div>
+            </div>
+            <div class="explorer-links">
+                <a id="txExplorer" target="_blank" class="btn-explorer">View Transaction</a>
+                <a id="blockExplorer" target="_blank" class="btn-explorer">View Block</a>
+            </div>
+        </div>
+
+        <div class="retrieve-section">
+            <h2>🔍 Retrieve a Blob</h2>
+            <p style="color: #666; margin-bottom: 15px;">Enter the blob details from a previous post to retrieve it:</p>
+            <div class="input-group">
+                <input type="text" id="heightInput" placeholder="Block Height (e.g., 123456)" />
+                <input type="text" id="commitmentInput" placeholder="Commitment" />
+            </div>
+            <div class="passkey-section">
+                <div class="passkey-option-toggle">
+                    <button class="retrieve-passkey-option-btn active" data-mode="biometric">🔐 Use Biometric</button>
+                    <button class="retrieve-passkey-option-btn" data-mode="password">🔑 Use Password</button>
+                </div>
+                <div id="retrieveBiometricMode" class="passkey-mode">
+                    <button id="retrieveAuthenticatePasskeyBtn" class="authenticate-passkey-btn" style="display: none;">
+                        🔓 Unlock with Biometric
+                    </button>
+                    <p class="passkey-hint" id="retrieveBiometricHint">Use biometric to decrypt</p>
+                </div>
+                <div id="retrievePasswordMode" class="passkey-mode" style="display: none;">
+                    <input type="password" id="retrievePasskeyInput" placeholder="🔐 Enter password to decrypt" />
+                </div>
+            </div>
+            <button id="retrieveBtn">Retrieve Blob</button>
+            <div id="retrieveStatus"></div>
+        </div>
+
+        <div class="retrieved-section" id="retrievedSection" style="display: none;">
+            <h2>📄 Retrieved Blob</h2>
+            <div class="blob-content" id="blobContent"></div>
+            <div class="blob-meta">
+                <div><strong>Block Height:</strong> <span id="retrievedHeight"></span></div>
+                <div><strong>Namespace:</strong> <code id="retrievedNamespace"></code></div>
+                <div><strong>Commitment:</strong> <code id="retrievedCommitment"></code></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
