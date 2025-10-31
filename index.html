@@ -19,6 +19,12 @@
         <h1>📋 Celestia Bulletin Board</h1>
         <p class="subtitle">Post messages to <a href="https://celestia.org" target="_blank" rel="noopener">Celestia</a>'s data availability layer via <a href="https://t.tech" target="_blank" rel="noopener">Twinkle</a> • <span style="color: #ffd700;">Mocha Testnet</span> • <a href="https://github.com/jcstein/t" target="_blank" rel="noopener">View Code</a></p>
 
+        <div class="post-section" id="signInSection">
+            <h2>🔐 Sign in with Passkey</h2>
+            <p style="color: #666; margin-bottom: 15px;">Sign in to save your posts and view your history</p>
+            <button id="signInBtn">🔐 Sign in with Passkey</button>
+        </div>
+
         <div class="post-section">
             <h2>Post a Message or Image</h2>
             <div class="input-tabs">
@@ -131,9 +137,20 @@
             </div>
         </div>
 
+        <div class="history-section" id="historySection" style="display: none;">
+            <h2>📚 Your Post History</h2>
+            <p style="color: #666; margin-bottom: 15px;">All your encrypted posts secured with passkey authentication:</p>
+            <div id="historyLoading" class="loading-spinner" style="display: none;">Loading...</div>
+            <div id="historyContent"></div>
+            <div id="historyEmpty" style="display: none; text-align: center; padding: 40px; color: #999;">
+                <p>No posts yet! Your posts will appear here after you submit them.</p>
+            </div>
+        </div>
+
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
 </body>
 </html>

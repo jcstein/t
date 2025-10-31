@@ -2,9 +2,18 @@
 const NETWORK = 'mocha-4';
 const NAMESPACE = '0000007477696e6b6c65'; // "twinkle" in hex (10 bytes)
 
-// Supabase config - will add later
-const SUPABASE_URL = ''; // TODO
-const SUPABASE_KEY = ''; // TODO
+// Supabase config - replaced by Netlify build
+const SUPABASE_URL = 'PLACEHOLDER_SUPABASE_URL';
+const SUPABASE_KEY = 'PLACEHOLDER_SUPABASE_ANON_KEY';
+
+// Initialize Supabase client
+let supabase = null;
+let currentUser = null; // Store signed-in user's credential ID
+
+if (typeof window !== 'undefined' && window.supabase && SUPABASE_URL && SUPABASE_KEY &&
+    SUPABASE_URL !== 'PLACEHOLDER_SUPABASE_URL') {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // State
 let selectedFile = null;
@@ -220,6 +229,162 @@ function showRetrieveStatus(message, isError = false) {
     }, 5000);
 }
 
+// Supabase functions
+async function signInWithPasskey() {
+    if (!await isWebAuthnSupported()) {
+        showStatus('Passkey authentication not supported on this device', true);
+        return false;
+    }
+
+    const storedCredentialId = localStorage.getItem('credentialId');
+
+    // If no passkey exists, create one (register)
+    if (!storedCredentialId) {
+        const success = await registerPasskey();
+        if (success) {
+            currentUser = credentialId;
+            showStatus('✅ Signed in with passkey!');
+            await loadHistory();
+            updateUI();
+        }
+        return success;
+    }
+
+    // If passkey exists, authenticate
+    const success = await authenticatePasskey();
+    if (success) {
+        currentUser = storedCredentialId;
+        credentialId = storedCredentialId;
+        showStatus('✅ Signed in with passkey!');
+        await loadHistory();
+        updateUI();
+    }
+    return success;
+}
+
+async function saveToSupabase(result, contentType, originalContent) {
+    if (!supabase || !currentUser) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('posts')
+            .insert([{
+                credential_id: currentUser,
+                content_type: contentType,
+                encrypted_content: originalContent,
+                block_height: result.blockHeight,
+                tx_id: result.celestiaTransactionId,
+                commitment: result.commitment,
+                gas_fee_cents: result.gasFeeUsdCents,
+                twinkle_request_id: result.twinkleRequestId,
+                block_explorer_tx_url: result.blockExplorer.transaction,
+                block_explorer_block_url: result.blockExplorer.block
+            }]);
+
+        if (error) {
+            console.error('Error saving to Supabase:', error);
+        } else {
+            await loadHistory();
+        }
+    } catch (error) {
+        console.error('Error saving to Supabase:', error);
+    }
+}
+
+async function loadHistory() {
+    if (!supabase || !currentUser) {
+        return;
+    }
+
+    const historySection = document.getElementById('historySection');
+    const historyLoading = document.getElementById('historyLoading');
+    const historyContent = document.getElementById('historyContent');
+    const historyEmpty = document.getElementById('historyEmpty');
+
+    historySection.style.display = 'block';
+    historyLoading.style.display = 'block';
+    historyContent.innerHTML = '';
+    historyEmpty.style.display = 'none';
+
+    try {
+        const { data, error } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('credential_id', currentUser)
+            .order('created_at', { ascending: false });
+
+        historyLoading.style.display = 'none';
+
+        if (error) {
+            console.error('Error loading history:', error);
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            historyEmpty.style.display = 'block';
+            return;
+        }
+
+        displayHistory(data);
+    } catch (error) {
+        console.error('Error loading history:', error);
+        historyLoading.style.display = 'none';
+    }
+}
+
+function displayHistory(posts) {
+    const historyContent = document.getElementById('historyContent');
+    historyContent.innerHTML = '';
+
+    posts.forEach(post => {
+        const card = document.createElement('div');
+        card.className = 'history-card';
+
+        const date = new Date(post.created_at).toLocaleString();
+        const contentPreview = post.content_type === 'text' ? '📝 Text message' : '🖼️ Image';
+
+        card.innerHTML = `
+            <div class="history-card-header">
+                <span class="history-type">${contentPreview}</span>
+                <span class="history-date">${date}</span>
+            </div>
+            <div class="history-card-body">
+                <div class="history-field">
+                    <strong>Block Height:</strong> ${post.block_height}
+                </div>
+                <div class="history-field">
+                    <strong>Transaction ID:</strong>
+                    <a href="${post.block_explorer_tx_url}" target="_blank" rel="noopener">
+                        ${post.tx_id.substring(0, 16)}...
+                    </a>
+                </div>
+                <div class="history-field">
+                    <strong>Commitment:</strong>
+                    <code class="commitment-code">${post.commitment}</code>
+                </div>
+                <div class="history-actions">
+                    <button class="history-btn" onclick="loadPostToRetrieve('${post.block_height}', '${post.commitment}')">
+                        🔍 Retrieve This
+                    </button>
+                    <a href="${post.block_explorer_tx_url}" target="_blank" rel="noopener" class="history-btn">
+                        🔗 View on Explorer
+                    </a>
+                </div>
+            </div>
+        `;
+
+        historyContent.appendChild(card);
+    });
+}
+
+function loadPostToRetrieve(blockHeight, commitment) {
+    document.getElementById('heightInput').value = blockHeight;
+    document.getElementById('commitmentInput').value = commitment;
+    document.querySelector('.retrieve-section').scrollIntoView({ behavior: 'smooth' });
+}
+
 async function postMessage() {
     const btn = document.getElementById('postBtn');
     const resultSection = document.getElementById('resultSection');
@@ -319,6 +484,14 @@ async function postMessage() {
 
         // Display result
         displayResult(result, contentType);
+
+        // Save to Supabase if signed in
+        if (currentUser) {
+            const originalContent = currentTab === 'text' ?
+                document.getElementById('messageInput').value.trim() :
+                '';
+            await saveToSupabase(result, contentType, originalContent);
+        }
 
         // Store passkey in session for convenience
         sessionStorage.setItem('passkey', passkey);
@@ -668,6 +841,30 @@ function updateRetrievePasskeyUI() {
     }
 }
 
+function updateUI() {
+    const signInBtn = document.getElementById('signInBtn');
+    const signInSection = document.getElementById('signInSection');
+
+    if (signInBtn) {
+        if (currentUser) {
+            signInBtn.textContent = '✅ Signed in';
+            signInBtn.disabled = true;
+            if (signInSection) {
+                signInSection.style.display = 'none';
+            }
+        } else {
+            signInBtn.textContent = '🔐 Sign in with Passkey';
+            signInBtn.disabled = false;
+            if (signInSection) {
+                signInSection.style.display = 'block';
+            }
+        }
+    }
+
+    updatePasskeyUI();
+    updateRetrievePasskeyUI();
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     // Load passkey from session if available (for password mode)
@@ -719,6 +916,12 @@ document.addEventListener('DOMContentLoaded', () => {
             updateRetrievePasskeyUI();
         });
     });
+
+    // Sign in button handler (if exists)
+    const signInBtn = document.getElementById('signInBtn');
+    if (signInBtn) {
+        signInBtn.addEventListener('click', signInWithPasskey);
+    }
 
     // Passkey registration and authentication handlers
     document.getElementById('registerPasskeyBtn').addEventListener('click', async () => {
